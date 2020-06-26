@@ -1,6 +1,7 @@
 import React from 'react'
 import playBtn from '../Images/play.png';
 import pauseBtn from '../Images/pause.png';
+import axios from 'axios';
 
 export default class Music extends React.Component {
     constructor(props) {
@@ -10,25 +11,23 @@ export default class Music extends React.Component {
             pause: true,
             songName: '',
         }
+        this.url = 'https://2ngpmfc7ll.execute-api.us-east-1.amazonaws.com/dev/songs/haroun-lofi';
     }
 
-    componentDidMount = () => {
+    componentDidMount = async () => {
         console.log('Component did mount');
 
         // get songs from s3
-        this.queue = this.getSongs();
+        this.queue = await this.getSongs();
 
         // shuffle queue
         this.shuffle(this.queue);
 
         // choose first song
-        this.audio = new Audio(this.queue[0].url);
+        this.audio = new Audio(this.queue[0]);
 
         // play the song
         this.play();
-
-        // set the name in bottom left
-        this.setState({ songName: this.queue[0].name });
 
         // when 1 song ends, chain the next
         this.audio.onended = this.onend;
@@ -36,7 +35,15 @@ export default class Music extends React.Component {
 
     play = () => {
         this.audio.play();
-        this.setState({ play: true, pause: false })
+
+        // get song name from url
+        let key = this.queue[0].split("/").slice(-1)[0];
+
+        this.setState({
+            play: true,
+            pause: false,
+            songName: this.getNameFromKey(key)
+        })
     }
 
     pause = () => {
@@ -60,7 +67,7 @@ export default class Music extends React.Component {
         if (!this.queue[0]) {
             this.queue = this.getSongs();
 
-             // shuffle queue
+            // shuffle queue
             this.shuffle(this.queue);
 
             // if still empty, then pause
@@ -71,48 +78,40 @@ export default class Music extends React.Component {
         }
 
         // play next song if exists
-        this.audio.src = this.queue[0].url;
-        this.setState({ songName: this.queue[0].name });
+        this.audio.src = this.queue[0];
         this.play();
         return;
-
-
     }
 
     // will have to turn into an async func that gets song data from s3
-    getSongs = () => {
-        return [
-            {
-                name: 'Lofi Guitar Melody Loop',
-                url: "https://haroun-lofi.s3.amazonaws.com/lofi-guitar-melody-loop_114bpm_D_minor.wav"
-            },
-            {
-                name: "File Example Song",
-                url: "https://file-examples.com/wp-content/uploads/2017/11/file_example_MP3_700KB.mp3"
-            },
-            {
-                name: 'Chill Gaming - David Fesliyan',
-                url: 'https://haroun-lofi.s3.amazonaws.com/2019-06-07_-_Chill_Gaming_-_David_Fesliyan.mp3'
-            },
-            {
-                name: 'Homework - David Fesliyan',
-                url: 'https://haroun-lofi.s3.amazonaws.com/2019-06-12_-_Homework_-_David_Fesliyan.mp3'
-            },
-            {
-                name: 'I Got This - David Renda',
-                url: 'https://haroun-lofi.s3.amazonaws.com/2019-06-12_-_I_Got_This_-_www.fesliyanstudios.com_-_David_Renda.mp3'
-            },
-            {
-                name: 'Vibes - David Renda',
-                url: 'https://haroun-lofi.s3.amazonaws.com/2019-08-09_-_Vibes_-_www.FesliyanStudios.com_-_David_Renda.mp3'
-            }
-        ]
+    getSongs = async () => {
+        try {
+            const response = await axios.get(this.url);
+            const songs = response.data.songs;
+            return songs;
+        } catch (error) {
+            console.log(error);
+        }
+
+    }
+
+    getNameFromKey = (key) => {
+        // trim file extension
+        key = key.split('.').slice(0, -1).join('.');
+
+        // go through string and only take words
+        key = key.replace(/[^A-Za-z]/g, " ");
+
+        // fix white spaces
+        key = key.replace(/\s+/g, ' ').trim()
+
+        return key;
     }
 
     /**
     * Shuffles array in place. ES6 version
     * @param {Array} a items An array containing the items.
-    */ 
+    */
     shuffle = (a) => {
         for (let i = a.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
